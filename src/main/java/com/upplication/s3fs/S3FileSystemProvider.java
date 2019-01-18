@@ -10,13 +10,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.upplication.s3fs.attribute.S3BasicFileAttributeView;
-import com.upplication.s3fs.attribute.S3BasicFileAttributes;
-import com.upplication.s3fs.attribute.S3PosixFileAttributeView;
-import com.upplication.s3fs.attribute.S3PosixFileAttributes;
-import com.upplication.s3fs.util.AttributesUtils;
-import com.upplication.s3fs.util.Cache;
-import com.upplication.s3fs.util.S3Utils;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -33,7 +26,6 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.collect.Sets.difference;
 import static com.upplication.s3fs.AmazonS3Factory.*;
-import static java.lang.String.format;
 
 /**
  * Spec:
@@ -72,9 +64,6 @@ public class S3FileSystemProvider extends FileSystemProvider {
     private static final List<String> PROPS_TO_OVERLOAD = Arrays.asList(ACCESS_KEY, SECRET_KEY, REQUEST_METRIC_COLLECTOR_CLASS, CONNECTION_TIMEOUT, MAX_CONNECTIONS, MAX_ERROR_RETRY, PROTOCOL, PROXY_DOMAIN,
             PROXY_HOST, PROXY_PASSWORD, PROXY_PORT, PROXY_USERNAME, PROXY_WORKSTATION, SOCKET_SEND_BUFFER_SIZE_HINT, SOCKET_RECEIVE_BUFFER_SIZE_HINT, SOCKET_TIMEOUT,
             USER_AGENT, AMAZON_S3_FACTORY_CLASS, SIGNER_OVERRIDE, PATH_STYLE_ACCESS);
-
-    private S3Utils s3Utils = new S3Utils();
-    private Cache cache = new Cache();
 
     @Override
     public String getScheme() {
@@ -302,18 +291,7 @@ public class S3FileSystemProvider extends FileSystemProvider {
 
     @Override
     public DirectoryStream<Path> newDirectoryStream(Path dir, DirectoryStream.Filter<? super Path> filter) throws IOException {
-        final S3Path s3Path = toS3Path(dir);
-        return new DirectoryStream<Path>() {
-            @Override
-            public void close() throws IOException {
-                // nothing to do here
-            }
-
-            @Override
-            public Iterator<Path> iterator() {
-                return new S3Iterator(s3Path);
-            }
-        };
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -361,8 +339,6 @@ public class S3FileSystemProvider extends FileSystemProvider {
     public void createDirectory(Path dir, FileAttribute<?>... attrs) throws IOException {
         S3Path s3Path = toS3Path(dir);
         Preconditions.checkArgument(attrs.length == 0, "attrs not yet supported: %s", ImmutableList.copyOf(attrs)); // TODO
-        if (exists(s3Path))
-            throw new FileAlreadyExistsException(format("target already exists: %s", s3Path));
         // create bucket if necesary
         Bucket bucket = s3Path.getFileStore().getBucket();
         String bucketName = s3Path.getFileStore().name();
@@ -406,10 +382,6 @@ public class S3FileSystemProvider extends FileSystemProvider {
         ImmutableSet<CopyOption> actualOptions = ImmutableSet.copyOf(options);
         verifySupportedOptions(EnumSet.of(StandardCopyOption.REPLACE_EXISTING), actualOptions);
 
-        if (exists(s3Target) && !actualOptions.contains(StandardCopyOption.REPLACE_EXISTING)) {
-            throw new FileAlreadyExistsException(format("target already exists: %s", target));
-        }
-
         String bucketNameOrigin = s3Source.getFileStore().name();
         String keySource = s3Source.getKey();
         String bucketNameTarget = s3Target.getFileStore().name();
@@ -447,92 +419,23 @@ public class S3FileSystemProvider extends FileSystemProvider {
 
     @Override
     public void checkAccess(Path path, AccessMode... modes) throws IOException {
-        S3Path s3Path = toS3Path(path);
-        Preconditions.checkArgument(s3Path.isAbsolute(), "path must be absolute: %s", s3Path);
-        if (modes.length == 0) {
-            if (exists(s3Path))
-                return;
-            throw new NoSuchFileException(toString());
-        }
-
-        String key = s3Utils.getS3ObjectSummary(s3Path).getKey();
-        S3AccessControlList accessControlList =
-                new S3AccessControlList(s3Path.getFileStore().name(), key, s3Path.getFileSystem().getClient().getObjectAcl(s3Path.getFileStore().name(), key), s3Path.getFileStore().getOwner());
-
-        accessControlList.checkAccess(modes);
+        throw new UnsupportedOperationException();
     }
 
 
     @Override
     public <V extends FileAttributeView> V getFileAttributeView(Path path, Class<V> type, LinkOption... options) {
-        S3Path s3Path = toS3Path(path);
-        if (type == BasicFileAttributeView.class) {
-            return (V) new S3BasicFileAttributeView(s3Path);
-        } else if (type == PosixFileAttributeView.class) {
-            return (V) new S3PosixFileAttributeView(s3Path);
-        } else if (type == null) {
-            throw new NullPointerException("Type is mandatory");
-        } else {
-            return null;
-        }
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public <A extends BasicFileAttributes> A readAttributes(Path path, Class<A> type, LinkOption... options) throws IOException {
-        S3Path s3Path = toS3Path(path);
-        if (type == BasicFileAttributes.class) {
-            if (cache.isInTime(s3Path.getFileSystem().getCache(), s3Path.getFileAttributes())) {
-                A result = type.cast(s3Path.getFileAttributes());
-                s3Path.setFileAttributes(null);
-                return result;
-            } else {
-                S3BasicFileAttributes attrs = s3Utils.getS3FileAttributes(s3Path);
-                s3Path.setFileAttributes(attrs);
-                return type.cast(attrs);
-            }
-        } else if (type == PosixFileAttributes.class) {
-            if (s3Path.getFileAttributes() instanceof PosixFileAttributes &&
-                    cache.isInTime(s3Path.getFileSystem().getCache(), s3Path.getFileAttributes())) {
-                A result = type.cast(s3Path.getFileAttributes());
-                s3Path.setFileAttributes(null);
-                return result;
-            }
-
-            S3PosixFileAttributes attrs = s3Utils.getS3PosixFileAttributes(s3Path);
-            s3Path.setFileAttributes(attrs);
-            return type.cast(attrs);
-        }
-
-        throw new UnsupportedOperationException(format("only %s or %s supported", BasicFileAttributes.class, PosixFileAttributes.class));
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public Map<String, Object> readAttributes(Path path, String attributes, LinkOption... options) throws IOException {
-        if (attributes == null) {
-            throw new IllegalArgumentException("Attributes null");
-        }
-
-        if (attributes.contains(":") && !attributes.contains("basic:") && !attributes.contains("posix:")) {
-            throw new UnsupportedOperationException(format("attributes %s are not supported, only basic / posix are supported", attributes));
-        }
-
-        if (attributes.equals("*") || attributes.equals("basic:*")) {
-            BasicFileAttributes attr = readAttributes(path, BasicFileAttributes.class, options);
-            return AttributesUtils.fileAttributeToMap(attr);
-        } else if (attributes.equals("posix:*")) {
-            PosixFileAttributes attr = readAttributes(path, PosixFileAttributes.class, options);
-            return AttributesUtils.fileAttributeToMap(attr);
-        } else {
-            String[] filters = new String[]{attributes};
-            if (attributes.contains(",")) {
-                filters = attributes.split(",");
-            }
-            Class<? extends BasicFileAttributes> filter = BasicFileAttributes.class;
-            if (attributes.startsWith("posix:")) {
-                filter = PosixFileAttributes.class;
-            }
-            return AttributesUtils.fileAttributeToMap(readAttributes(path, filter, options), filters);
-        }
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -594,22 +497,6 @@ public class S3FileSystemProvider extends FileSystemProvider {
         Preconditions.checkArgument(unsupported.isEmpty(), "the following options are not supported: %s", unsupported);
     }
 
-    /**
-     * check that the paths exists or not
-     *
-     * @param path S3Path
-     * @return true if exists
-     */
-    boolean exists(S3Path path) {
-        S3Path s3Path = toS3Path(path);
-        try {
-            s3Utils.getS3ObjectSummary(s3Path);
-            return true;
-        } catch (NoSuchFileException e) {
-            return false;
-        }
-    }
-
     public void close(S3FileSystem fileSystem) {
         if (fileSystem.getKey() != null && fileSystems.containsKey(fileSystem.getKey()))
             fileSystems.remove(fileSystem.getKey());
@@ -627,11 +514,4 @@ public class S3FileSystemProvider extends FileSystemProvider {
         return fileSystems;
     }
 
-    public Cache getCache() {
-        return cache;
-    }
-
-    public void setCache(Cache cache) {
-        this.cache = cache;
-    }
 }

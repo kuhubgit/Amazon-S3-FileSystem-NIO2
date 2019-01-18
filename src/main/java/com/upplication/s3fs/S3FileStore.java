@@ -63,16 +63,12 @@ public class S3FileStore extends FileStore implements Comparable<S3FileStore> {
     @SuppressWarnings("unchecked")
     @Override
     public <V extends FileStoreAttributeView> V getFileStoreAttributeView(Class<V> type) {
-        if (type != S3FileStoreAttributeView.class)
-            throw new IllegalArgumentException("FileStoreAttributeView of type '" + type.getName() + "' is not supported.");
-        Bucket buck = getBucket();
-        Owner owner = buck.getOwner();
-        return (V) new S3FileStoreAttributeView(buck.getCreationDate(), buck.getName(), owner.getId(), owner.getDisplayName());
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public Object getAttribute(String attribute) throws IOException {
-        return getFileStoreAttributeView(S3FileStoreAttributeView.class).getAttribute(attribute);
+        throw new UnsupportedOperationException();
     }
 
     public S3FileSystem getFileSystem() {

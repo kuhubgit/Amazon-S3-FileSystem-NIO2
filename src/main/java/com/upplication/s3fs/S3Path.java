@@ -3,7 +3,6 @@ package com.upplication.s3fs;
 import com.google.common.base.*;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.upplication.s3fs.attribute.S3BasicFileAttributes;
 
 import java.io.File;
 import java.io.IOException;
@@ -36,11 +35,6 @@ public class S3Path implements Path {
      * actual filesystem
      */
     private S3FileSystem fileSystem;
-
-    /**
-     * S3BasicFileAttributes cache
-     */
-    private S3BasicFileAttributes fileAttributes;
 
     /**
      * Build an S3Path from path segments. '/' are stripped from each segment.
@@ -604,11 +598,4 @@ public class S3Path implements Path {
         }
     }
 
-    public S3BasicFileAttributes getFileAttributes() {
-        return fileAttributes;
-    }
-
-    public void setFileAttributes(S3BasicFileAttributes fileAttributes) {
-        this.fileAttributes = fileAttributes;
-    }
 }

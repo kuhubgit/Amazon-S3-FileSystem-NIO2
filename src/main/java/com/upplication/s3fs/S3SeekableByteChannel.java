@@ -1,7 +1,5 @@
 package com.upplication.s3fs;
 
-import static java.lang.String.format;
-
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,13 +33,12 @@ public class S3SeekableByteChannel implements SeekableByteChannel {
         this.path = path;
         this.options = Collections.unmodifiableSet(new HashSet<>(options));
         String key = path.getKey();
-        boolean exists = path.getFileSystem().provider().exists(path);
 
-        if (exists && this.options.contains(StandardOpenOption.CREATE_NEW))
-            throw new FileAlreadyExistsException(format("target already exists: %s", path));
-        else if (!exists && !this.options.contains(StandardOpenOption.CREATE_NEW) &&
-                !this.options.contains(StandardOpenOption.CREATE))
-            throw new NoSuchFileException(format("target not exists: %s", path));
+        // TODO: 存在チェック
+        boolean exists
+                  = this.options.size() == 2
+                && this.options.contains(StandardOpenOption.TRUNCATE_EXISTING)
+                && this.options.contains(StandardOpenOption.WRITE);
 
         tempFile = Files.createTempFile("temp-s3-", key.replaceAll("/", "_"));
         boolean removeTempFile = true;

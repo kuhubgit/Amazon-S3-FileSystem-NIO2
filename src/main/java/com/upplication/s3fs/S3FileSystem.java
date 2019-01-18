@@ -12,29 +12,19 @@ import java.nio.file.attribute.UserPrincipalLookupService;
 import java.util.Set;
 
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.Bucket;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
-/**
- * S3FileSystem with a concrete client configured and ready to use.
- *
- * @see AmazonS3 configured by {@link AmazonS3Factory}
- */
 public class S3FileSystem extends FileSystem implements Comparable<S3FileSystem> {
 
     private final S3FileSystemProvider provider;
     private final String key;
     private final AmazonS3 client;
     private final String endpoint;
-    private int cache;
 
     public S3FileSystem(S3FileSystemProvider provider, String key, AmazonS3 client, String endpoint) {
         this.provider = provider;
         this.key = key;
         this.client = client;
         this.endpoint = endpoint;
-        this.cache = 60000; // 1 minute cache for the s3Path
     }
 
     @Override
@@ -68,25 +58,17 @@ public class S3FileSystem extends FileSystem implements Comparable<S3FileSystem>
 
     @Override
     public Iterable<Path> getRootDirectories() {
-        ImmutableList.Builder<Path> builder = ImmutableList.builder();
-        for (FileStore fileStore : getFileStores()) {
-            builder.add(((S3FileStore) fileStore).getRootDirectory());
-        }
-        return builder.build();
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public Iterable<FileStore> getFileStores() {
-        ImmutableList.Builder<FileStore> builder = ImmutableList.builder();
-        for (Bucket bucket : client.listBuckets()) {
-            builder.add(new S3FileStore(this, bucket.getName()));
-        }
-        return builder.build();
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public Set<String> supportedFileAttributeViews() {
-        return ImmutableSet.of("basic", "posix");
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -173,7 +155,4 @@ public class S3FileSystem extends FileSystem implements Comparable<S3FileSystem>
         return key.compareTo(o.getKey());
     }
 
-    public int getCache() {
-        return cache;
-    }
 }
